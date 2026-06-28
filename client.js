@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Server configuration
-const SERVER_URL = process.env.SERVER_URL || 'https://remote-control-server-4fdh.onrender.com';
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3001';
 
 // Get system information
 const hostname = os.hostname();
@@ -14,7 +14,14 @@ const platform = os.platform();
 const arch = os.arch();
 
 // Connect to server
-const socket = io(SERVER_URL);
+const socket = io(SERVER_URL, {
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 10000,
+    transports: ['websocket', 'polling']
+});
 
 console.log(`Connecting to ${SERVER_URL}...`);
 
