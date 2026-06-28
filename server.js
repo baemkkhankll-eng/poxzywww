@@ -9,7 +9,10 @@ const io = socketIo(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
-  }
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling']
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -29,6 +32,11 @@ function generateCode() {
 
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
+  
+  // Handle keep-alive ping
+  socket.on('ping', () => {
+    socket.emit('pong');
+  });
   
   // Register client
   socket.on('register', (clientInfo) => {
