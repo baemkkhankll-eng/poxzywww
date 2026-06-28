@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Control Dashboard</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #64748b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --background: #0f172a;
+            --surface: #1e293b;
+            --surface-hover: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border: #334155;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--background);
+            min-height: 100vh;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 32px;
+        }
+
+        .header-left h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+        }
+
+        .header-left p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--surface);
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--danger);
+        }
+
+        .status-dot.connected {
+            background: var(--success);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+        }
+
+        .panel {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .panel-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .client-count {
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .client-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .client-item {
+            padding: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .client-item:hover {
+            background: var(--surface-hover);
+            border-color: var(--primary);
+        }
+
+        .client-item.selected {
+            background: rgba(37, 99, 235, 0.1);
+            border-color: var(--primary);
+        }
+
+        .client-name {
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .client-type {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .client-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .client-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .client-status-text {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .control-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .control-section {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .control-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 20px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .control-btn:hover:not(:disabled) {
+            background: var(--surface-hover);
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .control-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .control-btn svg {
+            width: 24px;
+            height: 24px;
+            color: var(--text-secondary);
+            transition: color 0.2s ease;
+        }
+
+        .control-btn:hover:not(:disabled) svg {
+            color: var(--primary);
+        }
+
+        .control-btn.danger:hover:not(:disabled) {
+            border-color: var(--danger);
+        }
+
+        .control-btn.danger:hover:not(:disabled) svg {
+            color: var(--danger);
+        }
+
+        .control-btn.success:hover:not(:disabled) {
+            border-color: var(--success);
+        }
+
+        .control-btn.success:hover:not(:disabled) svg {
+            color: var(--success);
+        }
+
+        .input-section {
+            margin-top: 24px;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-wrapper input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        .input-wrapper input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .input-wrapper input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .input-wrapper button {
+            padding: 12px 24px;
+            background: var(--primary);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .input-wrapper button:hover {
+            background: var(--primary-dark);
+        }
+
+        .log-panel {
+            margin-top: 24px;
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .log-header h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .clear-logs {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .clear-logs:hover {
+            color: var(--text-primary);
+        }
+
+        .log-entry {
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .log-entry:last-child {
+            margin-bottom: 0;
+        }
+
+        .log-entry.command {
+            background: rgba(37, 99, 235, 0.1);
+            border-left: 3px solid var(--primary);
+        }
+
+        .log-entry.result {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 3px solid var(--success);
+        }
+
+        .log-entry.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid var(--danger);
+        }
+
+        .no-clients {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .no-clients svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .no-clients p {
+            font-size: 14px;
+        }
+
+        .add-device-section {
+            margin-bottom: 16px;
+        }
+
+        .add-device-btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--primary);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.2s ease;
+        }
+
+        .add-device-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .add-device-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 400px;
+            width: 90%;
+            border: 1px solid var(--border);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .modal-body input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .modal-body button {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--primary);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .modal-body button:hover {
+            background: var(--primary-dark);
+        }
+
+        .device-code-display {
+            background: var(--background);
+            border: 2px solid var(--primary);
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .device-code-display .code {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: 8px;
+            margin-bottom: 8px;
+        }
+
+        .device-code-display .label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .paired-devices {
+            margin-top: 24px;
+        }
+
+        .paired-device-item {
+            padding: 16px;
+            background: var(--background);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .paired-device-item:hover {
+            border-color: var(--primary);
+        }
+
+        .paired-device-item.selected {
+            background: rgba(37, 99, 235, 0.1);
+            border-color: var(--primary);
+        }
+
+        .paired-device-name {
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .paired-device-code {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 16px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .control-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+
+            .input-wrapper {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>Remote Control Dashboard</h1>
+                <p>Manage connected devices remotely</p>
+            </div>
+            <div class="status-badge">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Disconnected</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Connected Devices</h2>
+                    <span class="client-count" id="clientCount">0</span>
+                </div>
+                
+                <div class="add-device-section">
+                    <div style="display: flex; gap: 8px;">
+                        <button class="add-device-btn" onclick="showAddDeviceModal()" style="flex: 1;">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Add Device
+                        </button>
+                        <button class="add-device-btn" onclick="showConnectModal()" style="flex: 1; background: var(--success);">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                            </svg>
+                            Connect
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="client-list" id="clientList">
+                    <div class="no-clients">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                        <p>No devices connected</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-sections">
+                <div class="control-section">
+                    <div class="section-title">Screen Control</div>
+                    <div class="control-grid">
+                        <button class="control-btn success" onclick="sendCommand('screenshot')" id="screenshotBtn" disabled>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            Screenshot
+                        </button>
+                        <button class="control-btn" onclick="startStream()" id="startStreamBtn" disabled>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Start Stream
+                        </button>
+                        <button class="control-btn danger" onclick="stopStream()" id="stopStreamBtn" disabled>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Stop Stream
+                        </button>
+                    </div>
+                </div>
+
+                <div class="control-section" id="screenSection" style="display: none;">
+                    <div class="section-title">Screen Viewer</div>
+                    <div class="screen-viewer" style="position: relative;">
+                        <img id="screenImage" src="" alt="Screen" style="width: 100%; border-radius: 8px; border: 1px solid var(--border); cursor: crosshair;" 
+                             onmousedown="handleMouseDown(event)" 
+                             oncontextmenu="handleContextMenu(event)">
+                        <div class="screen-controls" style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px;">
+                            <button class="control-btn" onclick="toggleMouseControl()" id="mouseControlBtn" style="padding: 8px 12px; font-size: 12px;">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+                                </svg>
+                                Mouse
+                            </button>
+                            <button class="control-btn" onclick="toggleKeyboardControl()" id="keyboardControlBtn" style="padding: 8px 12px; font-size: 12px;">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                                </svg>
+                                Keyboard
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-title">System Controls</div>
+                    <div class="control-grid">
+                        <button class="control-btn" onclick="sendCommand('lock-screen')" id="lockBtn" disabled>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                            Lock Screen
+                        </button>
+                        <button class="control-btn danger" onclick="sendCommand('shutdown')" id="shutdownBtn" disabled>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.5 3H12a9 9 0 00-9 9v1a9 9 0 009 9h1.5m-1.5-13V3m0 0V1.5m0 1.5h1.5m-1.5 0H12m9 4.5V9a9 9 0 00-9 9v1a9 9 0 009 9h1.5m-1.5-13V9m0 0V7.5m0 1.5h1.5m-1.5 0H21"/>
+                            </svg>
+                            Shutdown
+                        </button>
+                        <button class="control-btn danger" onclick="sendCommand('restart')" id="restartBtn" disabled>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            Restart
+                        </button>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-title">Application Controls</div>
+                    <div class="control-grid">
+                        <button class="control-btn" onclick="sendCommand('open-url')" id="urlBtn" disabled>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                            </svg>
+                            Open URL
+                        </button>
+                        <button class="control-btn" onclick="sendCommand('message')" id="messageBtn" disabled>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                            </svg>
+                            Show Message
+                        </button>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-title">Audio Controls</div>
+                    <div class="control-grid">
+                        <button class="control-btn" onclick="sendCommand('volume-up')" id="volUpBtn" disabled>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                            </svg>
+                            Volume Up
+                        </button>
+                        <button class="control-btn" onclick="sendCommand('volume-down')" id="volDownBtn" disabled>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                            </svg>
+                            Volume Down
+                        </button>
+                        <button class="control-btn" onclick="sendCommand('mute')" id="muteBtn" disabled>
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+                            </svg>
+                            Mute
+                        </button>
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <div class="section-title">Custom Command</div>
+                    <div class="input-wrapper">
+                        <input type="text" id="customCommand" placeholder="Enter custom command...">
+                        <button onclick="sendCustomCommand()">Execute</button>
+                    </div>
+                </div>
+
+                <div class="log-panel">
+                    <div class="log-header">
+                        <h3>Activity Log</h3>
+                        <button class="clear-logs" onclick="clearLogs()">Clear</button>
+                    </div>
+                    <div id="logPanel">
+                        <div class="log-entry">Waiting for connection...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Device Modal -->
+    <div class="modal" id="addDeviceModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Device</h3>
+                <button class="modal-close" onclick="closeModal('addDeviceModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="addDeviceBody">
+                <input type="text" id="deviceNameInput" placeholder="Enter device name (e.g., My Laptop)">
+                <button onclick="createDevice()">Generate Code</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Code Display Modal -->
+    <div class="modal" id="deviceCodeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Device Code</h3>
+                <button class="modal-close" onclick="closeModal('deviceCodeModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="device-code-display">
+                    <div class="code" id="generatedCode">------</div>
+                    <div class="label">Share this code to connect</div>
+                </div>
+                <p style="text-align: center; color: var(--text-secondary); margin-bottom: 16px;">
+                    Device: <span id="deviceNameDisplay" style="color: var(--text-primary); font-weight: 500;"></span>
+                </p>
+                <button onclick="closeModal('deviceCodeModal')">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connect with Code Modal -->
+    <div class="modal" id="connectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Connect to Device</h3>
+                <button class="modal-close" onclick="closeModal('connectModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="deviceCodeInput" placeholder="Enter 6-digit code" maxlength="6">
+                <input type="text" id="connectDeviceNameInput" placeholder="Your device name">
+                <button onclick="connectWithCode()">Connect</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let selectedClient = null;
+        let selectedDeviceCode = null;
+        let clients = [];
+        let pairedDevices = new Map(); // code -> { name, targetId }
+        let mouseControlEnabled = false;
+        let keyboardControlEnabled = false;
+
+        // Connection status
+        socket.on('connect', () => {
+            document.getElementById('statusDot').classList.add('connected');
+            document.getElementById('statusText').textContent = 'Connected';
+            addLog('Connected to server', 'command');
+            
+            // Register as controller
+            socket.emit('register', {
+                name: 'Controller',
+                type: 'controller'
+            });
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('statusDot').classList.remove('connected');
+            document.getElementById('statusText').textContent = 'Disconnected';
+            addLog('Disconnected from server', 'error');
+        });
+
+        // Update client list
+        socket.on('clients-update', (updatedClients) => {
+            clients = updatedClients.filter(c => c.type !== 'controller');
+            updateClientList();
+            document.getElementById('clientCount').textContent = clients.length;
+        });
+
+        // Command results
+        socket.on('command-result', (data) => {
+            addLog(`ผลลัพธ์: ${data.result}`, 'result');
+        });
+
+        // Screenshot data
+        socket.on('screenshot-data', (data) => {
+            document.getElementById('screenImage').src = data.image;
+            document.getElementById('screenSection').style.display = 'block';
+            addLog('Screenshot received', 'result');
+        });
+
+        // Screen stream
+        socket.on('screen-stream', (data) => {
+            document.getElementById('screenImage').src = data.image;
+        });
+
+        // Screen stream stopped
+        socket.on('screen-stream-stopped', () => {
+            addLog('Screen stream stopped', 'result');
+        });
+
+        // Device created
+        socket.on('device-created', (data) => {
+            document.getElementById('generatedCode').textContent = data.code;
+            document.getElementById('deviceNameDisplay').textContent = data.name;
+            closeModal('addDeviceModal');
+            document.getElementById('deviceCodeModal').classList.add('active');
+            addLog(`Device created with code: ${data.code}`, 'result');
+        });
+
+        // Device connected (controller side)
+        socket.on('device-connected', (data) => {
+            pairedDevices.set(data.code, {
+                name: data.deviceName,
+                targetId: data.targetId
+            });
+            updatePairedDevicesList();
+            closeModal('deviceCodeModal');
+            addLog(`Device connected: ${data.deviceName}`, 'result');
+        });
+
+        // Connect success (target side)
+        socket.on('connect-success', (data) => {
+            closeModal('connectModal');
+            addLog(`Connected to controller: ${data.controllerName}`, 'result');
+            alert(`Successfully connected to ${data.controllerName}`);
+        });
+
+        // Connect error
+        socket.on('connect-error', (data) => {
+            addLog(`Connection error: ${data.message}`, 'error');
+            alert(data.message);
+        });
+
+        // Device disconnected
+        socket.on('device-disconnected', (data) => {
+            pairedDevices.delete(data.code);
+            updatePairedDevicesList();
+            addLog('Device disconnected', 'error');
+        });
+
+        // Controller disconnected (target side)
+        socket.on('controller-disconnected', () => {
+            addLog('Controller disconnected', 'error');
+            alert('Controller has disconnected');
+        });
+
+        function updateClientList() {
+            const clientList = document.getElementById('clientList');
+            
+            if (clients.length === 0) {
+                clientList.innerHTML = `
+                    <div class="no-clients">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                        <p>No devices connected</p>
+                    </div>
+                `;
+                disableAllButtons(true);
+                return;
+            }
+
+            clientList.innerHTML = clients.map(client => `
+                <div class="client-item ${selectedClient === client.id ? 'selected' : ''}" 
+                     onclick="selectClient('${client.id}')">
+                    <div class="client-name">${client.name}</div>
+                    <div class="client-type">${client.type}</div>
+                    <div class="client-status">
+                        <div class="client-status-dot"></div>
+                        <span class="client-status-text">Online</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectClient(clientId) {
+            selectedClient = clientId;
+            updateClientList();
+            disableAllButtons(false);
+            addLog(`เลือกเครื่อง: ${clientId}`, 'command');
+        }
+
+        function disableAllButtons(disabled) {
+            const buttons = document.querySelectorAll('.control-btn');
+            buttons.forEach(btn => btn.disabled = disabled);
+        }
+
+        function startStream() {
+            if (!selectedClient) {
+                addLog('Please select a device to control', 'error');
+                return;
+            }
+            sendCommand('start-stream');
+            document.getElementById('screenSection').style.display = 'block';
+            document.getElementById('startStreamBtn').disabled = true;
+            document.getElementById('stopStreamBtn').disabled = false;
+            addLog('Starting screen stream...', 'command');
+        }
+
+        function stopStream() {
+            if (!selectedClient) {
+                addLog('Please select a device to control', 'error');
+                return;
+            }
+            sendCommand('stop-stream');
+            document.getElementById('startStreamBtn').disabled = false;
+            document.getElementById('stopStreamBtn').disabled = true;
+            addLog('Stopping screen stream...', 'command');
+        }
+
+        function sendCommand(command, params = {}) {
+            if (!selectedClient) {
+                addLog('Please select a device to control', 'error');
+                return;
+            }
+
+            socket.emit('remote-command', {
+                targetId: selectedClient,
+                command: command,
+                params: params
+            });
+
+            addLog(`Command sent: ${command}`, 'command');
+        }
+
+        function sendCustomCommand() {
+            const command = document.getElementById('customCommand').value;
+            if (!command.trim()) return;
+
+            if (!selectedClient) {
+                addLog('Please select a device to control', 'error');
+                return;
+            }
+
+            socket.emit('remote-command', {
+                targetId: selectedClient,
+                command: 'custom',
+                params: { command: command }
+            });
+
+            addLog(`Custom command: ${command}`, 'command');
+            document.getElementById('customCommand').value = '';
+        }
+
+        function clearLogs() {
+            document.getElementById('logPanel').innerHTML = '';
+        }
+
+        function addLog(message, type = 'command') {
+            const logPanel = document.getElementById('logPanel');
+            const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            
+            logPanel.appendChild(logEntry);
+            logPanel.scrollTop = logPanel.scrollHeight;
+        }
+
+        // Modal functions
+        function showAddDeviceModal() {
+            document.getElementById('addDeviceModal').classList.add('active');
+            document.getElementById('deviceNameInput').value = '';
+            document.getElementById('deviceNameInput').focus();
+        }
+
+        function showConnectModal() {
+            document.getElementById('connectModal').classList.add('active');
+            document.getElementById('deviceCodeInput').value = '';
+            document.getElementById('connectDeviceNameInput').value = '';
+            document.getElementById('deviceCodeInput').focus();
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function createDevice() {
+            const deviceName = document.getElementById('deviceNameInput').value.trim();
+            if (!deviceName) {
+                alert('Please enter a device name');
+                return;
+            }
+            socket.emit('create-device', { name: deviceName });
+        }
+
+        function connectWithCode() {
+            const code = document.getElementById('deviceCodeInput').value.trim();
+            const deviceName = document.getElementById('connectDeviceNameInput').value.trim();
+            
+            if (!code || code.length !== 6) {
+                alert('Please enter a valid 6-digit code');
+                return;
+            }
+            
+            if (!deviceName) {
+                alert('Please enter your device name');
+                return;
+            }
+            
+            socket.emit('connect-device', { code, deviceName });
+        }
+
+        function updatePairedDevicesList() {
+            const clientList = document.getElementById('clientList');
+            
+            if (pairedDevices.size === 0 && clients.length === 0) {
+                clientList.innerHTML = `
+                    <div class="no-clients">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                        <p>No devices connected</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            
+            // Add paired devices
+            for (const [code, device] of pairedDevices.entries()) {
+                html += `
+                    <div class="client-item ${selectedDeviceCode === code ? 'selected' : ''}" 
+                         onclick="selectPairedDevice('${code}')">
+                        <div class="client-name">${device.name}</div>
+                        <div class="client-type">Code: ${code}</div>
+                        <div class="client-status">
+                            <div class="client-status-dot"></div>
+                            <span class="client-status-text">Connected</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Add regular clients
+            clients.forEach(client => {
+                html += `
+                    <div class="client-item ${selectedClient === client.id ? 'selected' : ''}" 
+                         onclick="selectClient('${client.id}')">
+                        <div class="client-name">${client.name}</div>
+                        <div class="client-type">${client.type}</div>
+                        <div class="client-status">
+                            <div class="client-status-dot"></div>
+                            <span class="client-status-text">Online</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            clientList.innerHTML = html;
+        }
+
+        function selectPairedDevice(code) {
+            selectedDeviceCode = code;
+            selectedClient = null;
+            updatePairedDevicesList();
+            disableAllButtons(false);
+            addLog(`Selected device with code: ${code}`, 'command');
+        }
+
+        // Override sendCommand to support device codes
+        const originalSendCommand = sendCommand;
+        sendCommand = function(command, params = {}) {
+            if (selectedDeviceCode) {
+                // Send using device code
+                socket.emit('remote-command-code', {
+                    code: selectedDeviceCode,
+                    command: command,
+                    params: params
+                });
+                addLog(`Command sent to device ${selectedDeviceCode}: ${command}`, 'command');
+            } else {
+                // Use original logic
+                originalSendCommand(command, params);
+            }
+        };
+
+        // Mouse and keyboard control functions
+        function toggleMouseControl() {
+            mouseControlEnabled = !mouseControlEnabled;
+            const btn = document.getElementById('mouseControlBtn');
+            if (mouseControlEnabled) {
+                btn.style.background = 'var(--primary)';
+                addLog('Mouse control enabled', 'command');
+            } else {
+                btn.style.background = '';
+                addLog('Mouse control disabled', 'command');
+            }
+        }
+
+        function toggleKeyboardControl() {
+            keyboardControlEnabled = !keyboardControlEnabled;
+            const btn = document.getElementById('keyboardControlBtn');
+            if (keyboardControlEnabled) {
+                btn.style.background = 'var(--primary)';
+                addLog('Keyboard control enabled', 'command');
+            } else {
+                btn.style.background = '';
+                addLog('Keyboard control disabled', 'command');
+            }
+        }
+
+        function handleMouseDown(event) {
+            if (!mouseControlEnabled) return;
+            event.preventDefault();
+            
+            const img = document.getElementById('screenImage');
+            const rect = img.getBoundingClientRect();
+            const x = Math.round((event.clientX - rect.left) * (img.naturalWidth / rect.width));
+            const y = Math.round((event.clientY - rect.top) * (img.naturalHeight / rect.height));
+            
+            const button = event.button === 2 ? 'right' : 'left';
+            
+            sendCommand('mouse-move', { x, y });
+            setTimeout(() => {
+                sendCommand('mouse-click', { button });
+            }, 50);
+        }
+
+        function handleContextMenu(event) {
+            event.preventDefault();
+        }
+
+        // Keyboard event handling
+        document.addEventListener('keydown', (event) => {
+            if (!keyboardControlEnabled) return;
+            
+            // Prevent default behavior for most keys
+            if (event.key !== 'F5' && event.key !== 'F12') {
+                event.preventDefault();
+            }
+            
+            const key = event.key;
+            if (key.length === 1) {
+                sendCommand('key-type', { text: key });
+            } else {
+                // Handle special keys
+                const keyMap = {
+                    'Enter': 'ENTER',
+                    'Escape': 'ESC',
+                    'Backspace': 'BACKSPACE',
+                    'Tab': 'TAB',
+                    'Delete': 'DELETE',
+                    'ArrowUp': 'UP',
+                    'ArrowDown': 'DOWN',
+                    'ArrowLeft': 'LEFT',
+                    'ArrowRight': 'RIGHT',
+                    ' ': 'SPACE'
+                };
+                const mappedKey = keyMap[key] || key;
+                sendCommand('key-press', { key: mappedKey });
+            }
+        });
+    </script>
+</body>
+</html>
