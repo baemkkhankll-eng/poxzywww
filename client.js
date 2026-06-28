@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Server configuration
-const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3001';
+const SERVER_URL = process.env.SERVER_URL || 'https://remote-control-server-4fdh.onrender.com/';
 
 // Get system information
 const hostname = os.hostname();
