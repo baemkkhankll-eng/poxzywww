@@ -824,7 +824,13 @@
     </div>
 
     <script>
-        const socket = io();
+        const socket = io({
+            reconnection: true,
+            reconnectionAttempts: 10,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 10000
+        });
         let selectedClient = null;
         let selectedDeviceCode = null;
         let clients = [];
@@ -848,7 +854,33 @@
         socket.on('disconnect', () => {
             document.getElementById('statusDot').classList.remove('connected');
             document.getElementById('statusText').textContent = 'Disconnected';
-            addLog('Disconnected from server', 'error');
+            addLog('Disconnected from server - attempting to reconnect...', 'error');
+        });
+
+        socket.on('reconnect', () => {
+            document.getElementById('statusDot').classList.add('connected');
+            document.getElementById('statusText').textContent = 'Connected';
+            addLog('Reconnected to server', 'result');
+        });
+
+        socket.on('reconnect_attempt', () => {
+            addLog('Attempting to reconnect...', 'command');
+        });
+
+        socket.on('reconnect_failed', () => {
+            addLog('Failed to reconnect', 'error');
+        });
+
+        // Keep-alive heartbeat
+        setInterval(() => {
+            if (socket.connected) {
+                socket.emit('ping');
+            }
+        }, 30000); // Send ping every 30 seconds
+
+        socket.on('pong', () => {
+            // Server responded to ping
+            console.log('Keep-alive pong received');
         });
 
         // Update client list
@@ -1061,9 +1093,14 @@
         function createDevice() {
             const deviceName = document.getElementById('deviceNameInput').value.trim();
             if (!deviceName) {
-                alert('Please enter a device name');
+                alert('กรุณาใส่ชื่ออุปกรณ์');
                 return;
             }
+            if (deviceName.length < 2) {
+                alert('ชื่ออุปกรณ์ต้องมีอย่างน้อย 2 ตัวอักษร');
+                return;
+            }
+            console.log('Creating device:', deviceName);
             socket.emit('create-device', { name: deviceName });
         }
 
@@ -1071,13 +1108,25 @@
             const code = document.getElementById('deviceCodeInput').value.trim();
             const deviceName = document.getElementById('connectDeviceNameInput').value.trim();
             
+            console.log('Connecting with код:', code, 'device:', deviceName);
+            
             if (!code || code.length !== 6) {
-                alert('Please enter a valid 6-digit code');
+                alert('กรุณาใส่รหัส 6 หลักที่ถูกต้อง');
+                return;
+            }
+            
+            if (!/^\d+$/.test(code)) {
+                alert('รหัสต้องเป็นตัวเลขเท่านั้น');
                 return;
             }
             
             if (!deviceName) {
-                alert('Please enter your device name');
+                alert('กรุณาใส่ชื่ออุปกรณ์ของคุณ');
+                return;
+            }
+            
+            if (deviceName.length < 2) {
+                alert('ชื่ออุปกรณ์ต้องมีอย่างน้อย 2 ตัวอักษร');
                 return;
             }
             
